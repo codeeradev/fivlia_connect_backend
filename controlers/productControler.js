@@ -180,6 +180,127 @@ exports.addProduct = async (req, res) => {
   }
 };
 
+// exports.getProduct = async (req, res) => {
+//   try {
+//     const { userId, category, page = 1, limit = 10, search } = req.query;
+//     console.log(req.query);
+//     let filter = {};
+
+//     const cleanSearch = typeof search === "string" ? search.trim() : undefined;
+
+//     const isAdmin = !userId && !category && cleanSearch === undefined;
+
+//     const isUserOwnListing = userId && !category && cleanSearch === undefined;
+
+//     const isSearchListing = userId && cleanSearch && cleanSearch.length > 0;
+
+//     const isCategoryListing = userId && category;
+
+//     // =========================
+//     // 1️⃣ ADMIN
+//     // =========================
+//     if (isAdmin) {
+//       filter.productStatus = { $in: ["active", "sold", "expired"] };
+//     }
+
+//     // =========================
+//     // 2️⃣ USER – MY PRODUCTS
+//     // =========================
+//     if (isUserOwnListing) {
+//       filter.userId = userId;
+//       // no status filter
+//       // no location filter
+//     }
+
+//     let userLat;
+//     let userLng;
+//     let radiusKm = DEFAULT_PRODUCT_RADIUS_KM;
+
+//     if (isCategoryListing || isSearchListing) {
+//       const globalSettings = await Setting.findOne().select("radius").lean();
+//       radiusKm = parseRadius(globalSettings?.radius, DEFAULT_PRODUCT_RADIUS_KM);
+//     }
+
+//     // =========================
+//     // 3️⃣ USER – CATEGORY LISTING
+//     // =========================
+//     if (isCategoryListing) {
+//       filter.productStatus = "active";
+//       filter.expiresAt = { $gt: new Date() };
+//       filter.$or = [{ category: category }, { subCategory: category }];
+//       // filter.userId = { $ne: userId };
+//       const user = await Users.findById(userId).select("latitude longitude");
+
+//       userLat = user.latitude;
+//       userLng = user.longitude;
+
+//       if (userLat && userLng) {
+//         applyLocationFilter(filter, userLat, userLng, radiusKm);
+//       }
+//     }
+
+//     // =========================
+//     // 4️⃣ USER – SEARCH LISTING
+//     // =========================
+//     if (isSearchListing) {
+//       filter.productStatus = "active";
+//       filter.expiresAt = { $gt: new Date() };
+//       // filter.userId = { $ne: userId };
+//       filter.$or = [
+//         { name: { $regex: search, $options: "i" } },
+//         { description: { $regex: search, $options: "i" } },
+//         { address: { $regex: search, $options: "i" } },
+//       ];
+
+//       const user = await Users.findById(userId).select("latitude longitude");
+
+//       userLat = user.latitude;
+//       userLng = user.longitude;
+
+//       if (userLat && userLng) {
+//         applyLocationFilter(filter, userLat, userLng, radiusKm);
+//       }
+//     }
+
+//     // =========================
+//     // PAGINATION (ADMIN ONLY)
+//     // =========================
+//     let usePagination = isAdmin;
+
+//     let query = products
+//       .find(filter)
+//       .select("-ratingSum")
+//       .populate("category")
+//       .populate("subCategory")
+//       .populate("userId")
+//       .sort({ createdAt: -1 });
+
+//     let total = 0;
+
+//     if (usePagination) {
+//       total = await products.countDocuments(filter);
+//       query = query.skip((page - 1) * limit).limit(Number(limit));
+//     }
+
+//     const productRaw = await query;
+//     const product = addDistanceKm(productRaw, userLat, userLng);
+
+//     return res.status(200).json({
+//       success: true,
+//       product,
+//       total: usePagination ? total : product.length,
+//       page: usePagination ? Number(page) : null,
+//       totalPages: usePagination ? Math.ceil(total / limit) : null,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({
+//       message: "❌ Failed to fetch products",
+//       error: error.message,
+//     });
+//   }
+// };
+
 exports.getProduct = async (req, res) => {
   try {
     const { userId, category, page = 1, limit = 10, search } = req.query;
@@ -227,15 +348,28 @@ exports.getProduct = async (req, res) => {
     if (isCategoryListing) {
       filter.productStatus = "active";
       filter.expiresAt = { $gt: new Date() };
-      filter.$or = [{ category: category }, { subCategory: category }];
+
+      // category/subCategory match — moved into $and so it can coexist
+      // with the addedBy/location $or below (can't have two top-level $or keys)
+      filter.$and = [
+        { $or: [{ category: category }, { subCategory: category }] },
+      ];
       // filter.userId = { $ne: userId };
+
       const user = await Users.findById(userId).select("latitude longitude");
 
       userLat = user.latitude;
       userLng = user.longitude;
 
       if (userLat && userLng) {
-        applyLocationFilter(filter, userLat, userLng, radiusKm);
+        // addedBy:true products bypass the radius check entirely.
+        // Everything else must satisfy the normal location filter.
+        const locationFilter = {};
+        applyLocationFilter(locationFilter, userLat, userLng, radiusKm);
+
+        filter.$and.push({
+          $or: [{ addedBy: true }, locationFilter],
+        });
       }
     }
 
@@ -246,10 +380,15 @@ exports.getProduct = async (req, res) => {
       filter.productStatus = "active";
       filter.expiresAt = { $gt: new Date() };
       // filter.userId = { $ne: userId };
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { address: { $regex: search, $options: "i" } },
+
+      filter.$and = [
+        {
+          $or: [
+            { name: { $regex: cleanSearch, $options: "i" } },
+            { description: { $regex: cleanSearch, $options: "i" } },
+            { address: { $regex: cleanSearch, $options: "i" } },
+          ],
+        },
       ];
 
       const user = await Users.findById(userId).select("latitude longitude");
@@ -258,7 +397,12 @@ exports.getProduct = async (req, res) => {
       userLng = user.longitude;
 
       if (userLat && userLng) {
-        applyLocationFilter(filter, userLat, userLng, radiusKm);
+        const locationFilter = {};
+        applyLocationFilter(locationFilter, userLat, userLng, radiusKm);
+
+        filter.$and.push({
+          $or: [{ addedBy: true }, locationFilter],
+        });
       }
     }
 
@@ -284,6 +428,7 @@ exports.getProduct = async (req, res) => {
 
     const productRaw = await query;
     const product = addDistanceKm(productRaw, userLat, userLng);
+    console.log(products, productRaw, userLat, userLng, "rwehfgqwherjhae")
 
     return res.status(200).json({
       success: true,
