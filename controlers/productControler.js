@@ -134,7 +134,9 @@ exports.addProduct = async (req, res) => {
       productData.selectedPlanId = selectedPlanId;
       productData.expiryDays = selectedPlan.duration;
     } else if (paymentType === "free") {
-      const settings = await Setting.findOne().select("freeProductExpiryDays").lean();
+      const settings = await Setting.findOne()
+        .select("freeProductExpiryDays")
+        .lean();
       productData.expiryDays = settings?.freeProductExpiryDays ?? 90;
     }
 
@@ -146,7 +148,7 @@ exports.addProduct = async (req, res) => {
       const selectedPlan = await ProductPlan.findById(selectedPlanId)
         .select("price")
         .lean();
-      
+
       let amount = Number(selectedPlan?.price ?? 0);
       if (!Number.isFinite(amount) || amount < 0) amount = 0;
 
@@ -159,7 +161,9 @@ exports.addProduct = async (req, res) => {
           referenceModel: "product",
           referenceId: newProduct._id,
           meta: {
-            productType: normalizedProductType.length ? normalizedProductType : null,
+            productType: normalizedProductType.length
+              ? normalizedProductType
+              : null,
           },
         });
       } catch (earningError) {
@@ -428,7 +432,7 @@ exports.getProduct = async (req, res) => {
 
     const productRaw = await query;
     const product = addDistanceKm(productRaw, userLat, userLng);
-    console.log(products, productRaw, userLat, userLng, "rwehfgqwherjhae")
+    console.log(products, productRaw, userLat, userLng, "rwehfgqwherjhae");
 
     return res.status(200).json({
       success: true,
@@ -502,20 +506,27 @@ exports.updateProductStatus = async (req, res) => {
 
 exports.addAdminProduct = async (req, res) => {
   try {
-    const { name, description, category, subCategory, price, address } = req.body;
+    const { name, description, category, subCategory, price, address } =
+      req.body;
     const normalizedName = String(name || "").trim();
     const normalizedPrice = Number(price);
 
-    if (!normalizedName) return res.status(400).json({ message: "Product name is required" });
+    if (!normalizedName)
+      return res.status(400).json({ message: "Product name is required" });
     if (!Number.isFinite(normalizedPrice) || normalizedPrice < 0) {
-      return res.status(400).json({ message: "A valid product price is required" });
+      return res
+        .status(400)
+        .json({ message: "A valid product price is required" });
     }
     if (!mongoose.Types.ObjectId.isValid(String(category))) {
       return res.status(400).json({ message: "A valid category is required" });
     }
 
-    const selectedCategory = await Category.findById(category).select("_id subcat").lean();
-    if (!selectedCategory) return res.status(404).json({ message: "Category not found" });
+    const selectedCategory = await Category.findById(category)
+      .select("_id subcat")
+      .lean();
+    if (!selectedCategory)
+      return res.status(404).json({ message: "Category not found" });
 
     let normalizedSubCategory = null;
     if (subCategory) {
@@ -526,13 +537,21 @@ exports.addAdminProduct = async (req, res) => {
         (sub) => String(sub._id) === String(subCategory),
       );
       if (!isValidSubCategory) {
-        return res.status(400).json({ message: "Subcategory does not belong to the selected category" });
+        return res
+          .status(400)
+          .json({
+            message: "Subcategory does not belong to the selected category",
+          });
       }
       normalizedSubCategory = subCategory;
     }
 
-    const settings = await Setting.findOne().select("freeProductExpiryDays").lean();
-    const image = (req.files?.MultipleImage || []).map((file) => `/${file.key}`);
+    const settings = await Setting.findOne()
+      .select("freeProductExpiryDays")
+      .lean();
+    const image = (req.files?.MultipleImage || []).map(
+      (file) => `/${file.key}`,
+    );
     const product = await products.create({
       name: normalizedName,
       description: String(description || "").trim(),
@@ -547,10 +566,14 @@ exports.addAdminProduct = async (req, res) => {
       expiryDays: settings?.freeProductExpiryDays ?? 90,
     });
 
-    return res.status(201).json({ message: "Admin product added successfully", product });
+    return res
+      .status(201)
+      .json({ message: "Admin product added successfully", product });
   } catch (error) {
     console.error("Add admin product error:", error);
-    return res.status(500).json({ message: "Failed to add admin product", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Failed to add admin product", error: error.message });
   }
 };
 
@@ -655,7 +678,9 @@ exports.repostProduct = async (req, res) => {
       }
     } else if (product.paymentType === "free") {
       // For free products, use setting freeProductExpiryDays
-      const settings = await Setting.findOne().select("freeProductExpiryDays").lean();
+      const settings = await Setting.findOne()
+        .select("freeProductExpiryDays")
+        .lean();
       product.expiryDays = settings?.freeProductExpiryDays ?? 90;
     }
 
@@ -691,17 +716,22 @@ exports.repostAdminProduct = async (req, res) => {
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     if (product.productStatus !== "expired") {
-      return res.status(400).json({ message: "Only expired products can be reposted" });
+      return res
+        .status(400)
+        .json({ message: "Only expired products can be reposted" });
     }
 
     if (product.paymentType === "free") {
-      const settings = await Setting.findOne().select("freeProductExpiryDays").lean();
+      const settings = await Setting.findOne()
+        .select("freeProductExpiryDays")
+        .lean();
       product.expiryDays = settings?.freeProductExpiryDays ?? 90;
     } else if (product.paymentType === "paid" && product.selectedPlanId) {
       const selectedPlan = await ProductPlan.findById(product.selectedPlanId)
         .select("duration")
         .lean();
-      if (selectedPlan?.duration > 0) product.expiryDays = selectedPlan.duration;
+      if (selectedPlan?.duration > 0)
+        product.expiryDays = selectedPlan.duration;
     }
 
     product.productStatus = "active";
@@ -714,7 +744,9 @@ exports.repostAdminProduct = async (req, res) => {
     });
   } catch (error) {
     console.error("Admin repost product error:", error);
-    return res.status(500).json({ message: "Failed to repost product", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Failed to repost product", error: error.message });
   }
 };
 
@@ -748,7 +780,17 @@ exports.getPublicListing = async (req, res) => {
     const userLng = user.longitude;
 
     // 📍 Apply location filter (20 KM)
-    applyLocationFilter(filter, userLat, userLng, radiusKm);
+    if (userLat && userLng) {
+      const locationFilter = {};
+
+      applyLocationFilter(locationFilter, userLat, userLng, radiusKm);
+
+      filter.$and = [
+        {
+          $or: [{ addedBy: true }, locationFilter],
+        },
+      ];
+    }
 
     const total = await products.countDocuments(filter);
 
@@ -904,15 +946,14 @@ exports.deleteAdminProduct = async (req, res) => {
     }
 
     // Keep banner product references valid after an admin deletes a product.
-    await banner.updateMany(
-      { productId },
-      { $pull: { productId } },
-    );
+    await banner.updateMany({ productId }, { $pull: { productId } });
 
     return res.status(200).json({ message: "Product deleted successfully" });
   } catch (error) {
     console.error("Delete admin product error:", error);
-    return res.status(500).json({ message: "Failed to delete product", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Failed to delete product", error: error.message });
   }
 };
 
