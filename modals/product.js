@@ -39,7 +39,6 @@ const productSchema = new mongoose.Schema(
       },
     },
     expiresAt: { type: Date },
-    addedBy:{type:Boolean, default: false},
     expiryDays: { type: Number, default: 90 },
   },
   { timestamps: true },

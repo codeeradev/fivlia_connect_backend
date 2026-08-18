@@ -52,6 +52,8 @@ const {
   login,
   verifyOtp,
   getUsers,
+  addAdminUser,
+  editAdminUser,
   getProfile,
   updateFcmToken,
   editProfile,
@@ -97,6 +99,8 @@ router.get("/admin/get-all-filters", verifyAdminToken, getAllFilters);
 router.post("/save-location", verifyToken, saveLocation);
 router.get("/get-city", getCity);
 router.get("/getUsers", getUsers);
+router.post("/admin/add-user", verifyAdminToken, addAdminUser);
+router.post("/admin/edit-user/:userId", verifyAdminToken, editAdminUser);
 router.get("/getProfile", verifyToken, getProfile);
 // ---------------- CATEGORY ROUTES ----------------
 

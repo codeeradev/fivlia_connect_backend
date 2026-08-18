@@ -197,7 +197,6 @@ exports.addAdminBanner = async (req, res) => {
       status: true,
       mainCategory: foundCategory._id,
       subCategory: foundSubCategory ? foundSubCategory._id : null,
-      addedBy: "admin",
     });
 
     return res.status(201).json({

@@ -484,3 +484,105 @@ exports.contactUsForm = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.addAdminUser = async (req, res) => {
+  try {
+    const { name, mobileNumber, email, latitude, longitude } = req.body;
+    const normalizedName = String(name || "").trim();
+    const normalizedMobileNumber = String(mobileNumber || "").trim();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedLatitude = Number(latitude);
+    const normalizedLongitude = Number(longitude);
+
+    if (!normalizedName) {
+      return res.status(400).json({ message: "User name is required" });
+    }
+    if (!normalizedMobileNumber) {
+      return res.status(400).json({ message: "Mobile number is required" });
+    }
+    if (
+      !Number.isFinite(normalizedLatitude) ||
+      normalizedLatitude < -90 ||
+      normalizedLatitude > 90 ||
+      !Number.isFinite(normalizedLongitude) ||
+      normalizedLongitude < -180 ||
+      normalizedLongitude > 180
+    ) {
+      return res.status(400).json({ message: "Valid latitude and longitude are required" });
+    }
+
+    const duplicateFilter = [{ mobileNumber: normalizedMobileNumber }];
+    if (normalizedEmail) duplicateFilter.push({ email: normalizedEmail });
+    const existingUser = await User.findOne({ $or: duplicateFilter });
+    if (existingUser) {
+      return res.status(400).json({ message: "A user with this mobile number or email already exists" });
+    }
+
+    const user = await User.create({
+      name: normalizedName,
+      mobileNumber: normalizedMobileNumber,
+      email: normalizedEmail || undefined,
+      latitude: normalizedLatitude,
+      longitude: normalizedLongitude,
+    });
+
+    return res.status(201).json({ message: "User added successfully", user });
+  } catch (error) {
+    console.error("Add admin user error:", error);
+    return res.status(500).json({ message: "Failed to add user", error: error.message });
+  }
+};
+
+exports.editAdminUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, mobileNumber, email, latitude, longitude } = req.body;
+    const normalizedName = String(name || "").trim();
+    const normalizedMobileNumber = String(mobileNumber || "").trim();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedLatitude = Number(latitude);
+    const normalizedLongitude = Number(longitude);
+
+    if (!normalizedName || !normalizedMobileNumber) {
+      return res.status(400).json({ message: "User name and mobile number are required" });
+    }
+    if (
+      !Number.isFinite(normalizedLatitude) ||
+      normalizedLatitude < -90 ||
+      normalizedLatitude > 90 ||
+      !Number.isFinite(normalizedLongitude) ||
+      normalizedLongitude < -180 ||
+      normalizedLongitude > 180
+    ) {
+      return res.status(400).json({ message: "Valid latitude and longitude are required" });
+    }
+
+    const duplicateFilter = [{ mobileNumber: normalizedMobileNumber }];
+    if (normalizedEmail) duplicateFilter.push({ email: normalizedEmail });
+    const existingUser = await User.findOne({
+      _id: { $ne: userId },
+      $or: duplicateFilter,
+    });
+    if (existingUser) {
+      return res.status(400).json({ message: "A user with this mobile number or email already exists" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        name: normalizedName,
+        mobileNumber: normalizedMobileNumber,
+        email: normalizedEmail || undefined,
+        latitude: normalizedLatitude,
+        longitude: normalizedLongitude,
+      },
+      { new: true, runValidators: true },
+    );
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    return res.status(200).json({ message: "User updated successfully", user });
+  } catch (error) {
+    console.error("Edit admin user error:", error);
+    return res.status(500).json({ message: "Failed to update user", error: error.message });
+  }
+};
