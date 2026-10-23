@@ -10,7 +10,7 @@ const sendFcmPush = require("../utils/firebase/sendNotification");
 const { recordBannerEarning } = require("../utils/bannerEarnings");
 const UserNotification = require("../modals/userNotification");
 const { sendMessages } = require("../utils/sendMessages");
-const HelpForm = require("../modals/help_form")
+const HelpForm = require("../modals/help_form");
 
 const {
   normalizeFcmToken,
@@ -24,7 +24,7 @@ exports.register = async (req, res) => {
     const user = await User.findOne({
       $or: [{ mobileNumber }, { email }],
     });
-    
+
     if (user) {
       return res
         .status(400)
@@ -98,7 +98,7 @@ exports.login = async (req, res) => {
     }
 
     const otp =
-      mobileNumber === "+919999999999"
+      mobileNumber === "9999999999"
         ? 123456
         : Math.floor(100000 + Math.random() * 900000);
     const message = `Dear Customer Your Fivlia Login OTP code is ${otp}. Valid for 5 minutes. Do not share with others Fivlia - Delivery in Minutes!`;
@@ -468,7 +468,7 @@ exports.contactUsForm = async (req, res) => {
   try {
     const userId = req.user;
     const { title, message } = req.body;
-    
+
     const request = await HelpForm.create({
       title,
       message,
@@ -490,7 +490,9 @@ exports.addAdminUser = async (req, res) => {
     const { name, mobileNumber, email, latitude, longitude } = req.body;
     const normalizedName = String(name || "").trim();
     const normalizedMobileNumber = String(mobileNumber || "").trim();
-    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
     const normalizedLatitude = Number(latitude);
     const normalizedLongitude = Number(longitude);
 
@@ -508,14 +510,20 @@ exports.addAdminUser = async (req, res) => {
       normalizedLongitude < -180 ||
       normalizedLongitude > 180
     ) {
-      return res.status(400).json({ message: "Valid latitude and longitude are required" });
+      return res
+        .status(400)
+        .json({ message: "Valid latitude and longitude are required" });
     }
 
     const duplicateFilter = [{ mobileNumber: normalizedMobileNumber }];
     if (normalizedEmail) duplicateFilter.push({ email: normalizedEmail });
     const existingUser = await User.findOne({ $or: duplicateFilter });
     if (existingUser) {
-      return res.status(400).json({ message: "A user with this mobile number or email already exists" });
+      return res
+        .status(400)
+        .json({
+          message: "A user with this mobile number or email already exists",
+        });
     }
 
     const user = await User.create({
@@ -529,7 +537,9 @@ exports.addAdminUser = async (req, res) => {
     return res.status(201).json({ message: "User added successfully", user });
   } catch (error) {
     console.error("Add admin user error:", error);
-    return res.status(500).json({ message: "Failed to add user", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Failed to add user", error: error.message });
   }
 };
 
@@ -539,12 +549,16 @@ exports.editAdminUser = async (req, res) => {
     const { name, mobileNumber, email, latitude, longitude } = req.body;
     const normalizedName = String(name || "").trim();
     const normalizedMobileNumber = String(mobileNumber || "").trim();
-    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedEmail = String(email || "")
+      .trim()
+      .toLowerCase();
     const normalizedLatitude = Number(latitude);
     const normalizedLongitude = Number(longitude);
 
     if (!normalizedName || !normalizedMobileNumber) {
-      return res.status(400).json({ message: "User name and mobile number are required" });
+      return res
+        .status(400)
+        .json({ message: "User name and mobile number are required" });
     }
     if (
       !Number.isFinite(normalizedLatitude) ||
@@ -554,7 +568,9 @@ exports.editAdminUser = async (req, res) => {
       normalizedLongitude < -180 ||
       normalizedLongitude > 180
     ) {
-      return res.status(400).json({ message: "Valid latitude and longitude are required" });
+      return res
+        .status(400)
+        .json({ message: "Valid latitude and longitude are required" });
     }
 
     const duplicateFilter = [{ mobileNumber: normalizedMobileNumber }];
@@ -564,7 +580,11 @@ exports.editAdminUser = async (req, res) => {
       $or: duplicateFilter,
     });
     if (existingUser) {
-      return res.status(400).json({ message: "A user with this mobile number or email already exists" });
+      return res
+        .status(400)
+        .json({
+          message: "A user with this mobile number or email already exists",
+        });
     }
 
     const user = await User.findByIdAndUpdate(
@@ -583,6 +603,8 @@ exports.editAdminUser = async (req, res) => {
     return res.status(200).json({ message: "User updated successfully", user });
   } catch (error) {
     console.error("Edit admin user error:", error);
-    return res.status(500).json({ message: "Failed to update user", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Failed to update user", error: error.message });
   }
 };
